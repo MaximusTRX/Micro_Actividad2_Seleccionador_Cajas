@@ -27,8 +27,8 @@
 #define F100MS		1	// GPIOR0<1>:
 #define F10US		2	// GPIOR0<2>:
 //#define BTNACTUAL	3	// GPIOR0<3>:
-//#define BTNDOWN		4	// GPIOR0<4>:
-//#define ECHOFLAG	5	// GPIOR0<5>:
+#define ECHOFINISH	4	// GPIOR0<4>: 1 cuando la medición termina
+#define ECHOSTATE	5	// GPIOR0<5>: 0 cuando se espera el flanco rising - 1 cuando se espera el falling
 #define INIMED		6	// GPIOR0<6>:
 #define FTRIGGER	7	// GPIOR0<7>:
 
@@ -50,11 +50,10 @@
 //========================== Constantes Globales son guardadas en la SRAM
 
 //uint8_t		tTRIGGER;		//!< Description: Tiempo entre inicio de medicion y medicion
-//uint8_t		tdebounce;
 uint8_t		time1;
 //uint8_t		MASKHEARBEAT;
-//uint16_t	tEchoUP;			//!< Description: Guarda el valor del contador del flanco ascendente del ECHO
-//uint16_t	tEchoDOWN;			//!< Description: Guarda el valor del contador del flanco descendente del ECHO
+uint16_t	tEchoUP;			//!< Description: Guarda el valor del contador del flanco ascendente del ECHO
+uint16_t	tEchoDOWN;			//!< Description: Guarda el valor del contador del flanco descendente del ECHO
 uint8_t		lastMedicion;		//!< Description: Guarda el valor de la resta entre los dos anteriores
 uint8_t		buffTx[256];		//!< Description: Buffer para transmición de datos
 uint8_t		indexWriteTx;		//!< Description: Indice de datos escrito en el buffer para enviar
@@ -90,7 +89,15 @@ ISR (TIMER1_COMPB_vect){
 }
 
 ISR(INT0_vect){
-	
+	if (!(GPIOR1 & (1<<ECHOSTATE)))
+	{
+		tEchoUP =	TCNT1;
+		EICRA	=	(1<<ISC01);		//!< Description: Configura el flanco a detectar, falling.
+		GPIOR1	|=	(1<<ECHOSTATE);
+	}else{
+		tEchoDOWN = TCNT1;
+		GPIOR1 |= (1<<ECHOFINISH);
+	}
 }
 
 
@@ -114,9 +121,6 @@ void ini_ExtInterrupt(){
 	EICRA	= (1<<ISC01) | (1<<ISC00);	//!< Description: Habilita que flanco genera la interrupción. Rising: 0-0. Falling: 1-0.
 	EIMSK	= (1<<INT0);				//!< Description: Habilita Interrupción general de los pines INT0
 	EIFR	= EIFR;						//!< Description: Flag de interrupciones externas
-//	PCICR	= 0x00;						//!< Description: Deshablilita la interrupción por cambio de flanco
-//	PCIFR	= PCIFR;					//!< Description: Flag de pedido de interrupción al cambio de logico en un pin
-//	PCMSK0	= (1<<PCINT0);				//!< Description: Seleccióna el pin que se controla el cambio para generar la interrupt
 }
 
 void ini_USART0(){
@@ -149,6 +153,9 @@ void do_Transmit(){
 
 void start_Med(){
 	GPIOR0 |= (1<<FTRIGGER);
+	
+	EICRA	= (1<<ISC01) | (1<<ISC00);	//!< Description: Habilita que flanco genera la interrupción. Rising: 0-0. Falling: 1-0.
+	EIFR	= EIFR;						//!< Description: Flag de interrupciones externas
 }
 
 void do_Trigger(){
@@ -185,15 +192,11 @@ int main(void)
 		{
 			GPIOR0 &= ~(1<<F10US);
 			
-			if (!(PINB & (1<<TRIGGER)))
-			{
-				if ((GPIOR0 & (1<<FTRIGGER)))
-				{
-					GPIOR0	&= ~(1<<FTRIGGER);
-					PORTB	|= (1<<TRIGGER);
+			if (GPIOR1 & (1<<FTRIGGER)){
+				if (PINB & (1<<TRIGGER)){		//!< Description: Si el trigger está en 1 pongo la flag en 0
+					GPIOR1 &= ~(1<<FTRIGGER);	//!< Description: Porque no necesito hacer toggle de nuevo
 				}
-			}else{
-				PORTB &= ~(1<<TRIGGER);
+				PORTB ^= (1<<TRIGGER);			//!< Description: Toggle del pin de trigger
 			}
 				
 			
@@ -201,6 +204,12 @@ int main(void)
 		
 		if (GPIOR0 & (1<<F10MS)){
 			do_10ms();
+		}
+		
+		if (GPIOR0 & (1<<ECHOFINISH))
+		{
+			GPIOR0 &= ~(1<<ECHOFINISH);
+			lastMedicion = (tEchoDOWN - tEchoUP)/58;
 		}
 		
 		if(GPIOR0 & (1<<F100MS)){
@@ -218,12 +227,9 @@ int main(void)
 			start_Med();
 		}
 		
-		if (UCSR0A & (1<<UDRE0)){
+		if (UCSR0A & (1<<UDRE0))
 			if (indexReadTx != indexWriteTx)
-			{
 				UDR0 = buffTx[indexReadTx++];
-			}
-		}
 		
 		
     }
