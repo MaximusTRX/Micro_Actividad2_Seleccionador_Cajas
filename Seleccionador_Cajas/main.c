@@ -29,8 +29,8 @@
 //#define BTNACTUAL	3	// GPIOR0<3>:
 //#define BTNDOWN		4	// GPIOR0<4>:
 //#define ECHOFLAG	5	// GPIOR0<5>:
-//#define INIMED		6	// GPIOR0<6>:
-//#define FTRIGGER	7	// GPIOR0<7>:
+#define INIMED		6	// GPIOR0<6>:
+#define FTRIGGER	7	// GPIOR0<7>:
 
 
 // EEPROM
@@ -72,6 +72,7 @@ void do_10ms();
 //void do_BTNCHANGE();
 void do_Transmit();
 void do_Trigger();
+void start_Med();
 
 //.
 
@@ -87,6 +88,12 @@ ISR (TIMER1_COMPB_vect){
 	OCR1B	+= 20;				// Equivale a 10us
 	GPIOR0	|= (1<<F10US);
 }
+
+ISR(INT0_vect){
+	
+}
+
+
 
 //========================== Initialization Functions
 void ini_ports(){
@@ -107,9 +114,9 @@ void ini_ExtInterrupt(){
 	EICRA	= (1<<ISC01) | (1<<ISC00);	//!< Description: Habilita que flanco genera la interrupción. Rising: 0-0. Falling: 1-0.
 	EIMSK	= (1<<INT0);				//!< Description: Habilita Interrupción general de los pines INT0
 	EIFR	= EIFR;						//!< Description: Flag de interrupciones externas
-	PCICR	= 0x00;						//!< Description: Deshablilita la interrupción por cambio de flanco
-	PCIFR	= PCIFR;					//!< Description: Flag de pedido de interrupción al cambio de logico en un pin
-	PCMSK0	= (1<<PCINT0);				//!< Description: Seleccióna el pin que se controla el cambio para generar la interrupt
+//	PCICR	= 0x00;						//!< Description: Deshablilita la interrupción por cambio de flanco
+//	PCIFR	= PCIFR;					//!< Description: Flag de pedido de interrupción al cambio de logico en un pin
+//	PCMSK0	= (1<<PCINT0);				//!< Description: Seleccióna el pin que se controla el cambio para generar la interrupt
 }
 
 void ini_USART0(){
@@ -140,8 +147,12 @@ void do_Transmit(){
 	}
 }
 
+void start_Med(){
+	GPIOR0 |= (1<<FTRIGGER);
+}
+
 void do_Trigger(){
-		
+	
 }
 
 int main(void)
@@ -157,6 +168,7 @@ int main(void)
 	ini_Timer1();
 	ini_USART0();
 	ini_ExtInterrupt();
+	start_Med();
 	sei();
 	
 	indexReadTx = 0;
@@ -172,7 +184,18 @@ int main(void)
 		if (GPIOR0 & (1<<F10US))
 		{
 			GPIOR0 &= ~(1<<F10US);
-			do_Trigger();
+			
+			if (!(PINB & (1<<TRIGGER)))
+			{
+				if ((GPIOR0 & (1<<FTRIGGER)))
+				{
+					GPIOR0	&= ~(1<<FTRIGGER);
+					PORTB	|= (1<<TRIGGER);
+				}
+			}else{
+				PORTB &= ~(1<<TRIGGER);
+			}
+				
 			
 		}
 		
@@ -192,6 +215,7 @@ int main(void)
 			buffTx[indexWriteTx++] = 0x0A;
 			lastMedicion++;
 			
+			start_Med();
 		}
 		
 		if (UCSR0A & (1<<UDRE0)){
