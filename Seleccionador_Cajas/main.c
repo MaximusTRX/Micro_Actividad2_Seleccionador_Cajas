@@ -182,6 +182,8 @@ int main(void)
 			if (indexReadTx != indexWriteTx)
 			{
 				UDR0 = buffTx[indexReadTx++];
+				
+				
 			}
 		}
 		
