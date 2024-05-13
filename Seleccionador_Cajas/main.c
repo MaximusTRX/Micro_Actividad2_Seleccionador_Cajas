@@ -19,7 +19,7 @@
 
 
 //*** Constantes propias ***
-#define TIME1		30
+#define TIME1		50
 
 
 // **** GPIOR0 como regsitros de banderas ****
@@ -51,7 +51,7 @@
 
 //uint8_t		tTRIGGER;		//!< Description: Tiempo entre inicio de medicion y medicion
 //uint8_t		tdebounce;
-uint8_t		t100ms;
+uint8_t		time1;
 //uint8_t		MASKHEARBEAT;
 //uint16_t	tEchoUP;			//!< Description: Guarda el valor del contador del flanco ascendente del ECHO
 //uint16_t	tEchoDOWN;			//!< Description: Guarda el valor del contador del flanco descendente del ECHO
@@ -65,10 +65,13 @@ uint8_t		indexReadTx;		//!< Description: Indice de datos leidos para ser enviado
 //========================== Declaración Cabeceras de Funciones
 void ini_ports();
 void ini_Timer1();
+void ini_USART0();
+void ini_ExtInterrupt();
 void do_10ms();
 //void do_Medicion();
 //void do_BTNCHANGE();
 void do_Transmit();
+void do_Trigger();
 
 //.
 
@@ -100,6 +103,15 @@ void ini_Timer1(){
 	TIFR1	= TIFR1;
 }
 
+void ini_ExtInterrupt(){
+	EICRA	= (1<<ISC01) | (1<<ISC00);	//!< Description: Habilita que flanco genera la interrupción. Rising: 0-0. Falling: 1-0.
+	EIMSK	= (1<<INT0);				//!< Description: Habilita Interrupción general de los pines INT0
+	EIFR	= EIFR;						//!< Description: Flag de interrupciones externas
+	PCICR	= 0x00;						//!< Description: Deshablilita la interrupción por cambio de flanco
+	PCIFR	= PCIFR;					//!< Description: Flag de pedido de interrupción al cambio de logico en un pin
+	PCMSK0	= (1<<PCINT0);				//!< Description: Seleccióna el pin que se controla el cambio para generar la interrupt
+}
+
 void ini_USART0(){
 	UCSR0A = UCSR0A;
 	UCSR0A = (1<<U2X0);
@@ -114,14 +126,13 @@ void ini_USART0(){
 void do_10ms(){
 	GPIOR0 &= ~(1<<F10MS);
 	
-	t100ms --;
-	if(!t100ms)
+	time1 --;
+	if(!time1)
 	{
-		t100ms = TIME1;
+		time1 = TIME1;
 		GPIOR0 |= (1<<F100MS);
 	}
 }
-
 
 void do_Transmit(){
 	if (UCSR0A & (1<<UDRE0)){
@@ -129,7 +140,9 @@ void do_Transmit(){
 	}
 }
 
-
+void do_Trigger(){
+		
+}
 
 int main(void)
 {
@@ -143,14 +156,15 @@ int main(void)
 	ini_ports();
 	ini_Timer1();
 	ini_USART0();
+	ini_ExtInterrupt();
 	sei();
 	
-	//lastMedicion = 0x44;
 	indexReadTx = 0;
 	indexWriteTx = 0;
-	
-	t100ms = TIME1;
 	lastMedicion = 0;
+	
+	time1 = TIME1;
+	
 	
     while (1) 
     {
@@ -158,6 +172,8 @@ int main(void)
 		if (GPIOR0 & (1<<F10US))
 		{
 			GPIOR0 &= ~(1<<F10US);
+			do_Trigger();
+			
 		}
 		
 		if (GPIOR0 & (1<<F10MS)){
@@ -182,8 +198,6 @@ int main(void)
 			if (indexReadTx != indexWriteTx)
 			{
 				UDR0 = buffTx[indexReadTx++];
-				
-				
 			}
 		}
 		
