@@ -52,14 +52,22 @@
 //uint8_t		tTRIGGER;		//!< Description: Tiempo entre inicio de medicion y medicion
 uint8_t		time1;
 //uint8_t		MASKHEARBEAT;
-uint16_t	tEchoUP;			//!< Description: Guarda el valor del contador del flanco ascendente del ECHO
-uint16_t	tEchoDOWN;			//!< Description: Guarda el valor del contador del flanco descendente del ECHO
-uint8_t		lastMedicion;		//!< Description: Guarda el valor de la resta entre los dos anteriores
+//uint16_t	tEchoUP;			//!< Description: Guarda el valor del contador del flanco ascendente del ECHO
+//uint16_t	tEchoDOWN;			//!< Description: Guarda el valor del contador del flanco descendente del ECHO
+//uint16_t	lastMedicion;		//!< Description: Guarda el valor de la resta entre los dos anteriores
 uint8_t		buffTx[256];		//!< Description: Buffer para transmición de datos
 uint8_t		indexWriteTx;		//!< Description: Indice de datos escrito en el buffer para enviar
 uint8_t		indexReadTx;		//!< Description: Indice de datos leidos para ser enviados
 //
 
+typedef union{
+	uint16_t	myword_16;
+	uint8_t		myword_8[2];
+}_uMyword;
+
+_uMyword tEchoUP;
+_uMyword tEchoDOWN;
+_uMyword lastMedicion;
 
 //========================== Declaración Cabeceras de Funciones
 void ini_ports();
@@ -89,14 +97,14 @@ ISR (TIMER1_COMPB_vect){
 }
 
 ISR(INT0_vect){
-	if (!(GPIOR1 & (1<<ECHOSTATE)))
+	if (!(GPIOR0 & (1<<ECHOSTATE)))
 	{
-		tEchoUP =	TCNT1;
-		EICRA	=	(1<<ISC01);		//!< Description: Configura el flanco a detectar, falling.
-		GPIOR1	|=	(1<<ECHOSTATE);
+		tEchoUP.myword_16 =	TCNT1;
+		EICRA	=	0b00000011;		//!< Description: Configura el flanco a detectar, falling.
+		GPIOR0	|=	(1<<ECHOSTATE);
 	}else{
-		tEchoDOWN = TCNT1;
-		GPIOR1 |= (1<<ECHOFINISH);
+		tEchoDOWN.myword_16 = TCNT1;
+		GPIOR0 |= (1<<ECHOFINISH);
 	}
 }
 
@@ -118,7 +126,7 @@ void ini_Timer1(){
 }
 
 void ini_ExtInterrupt(){
-	EICRA	= (1<<ISC01) | (1<<ISC00);	//!< Description: Habilita que flanco genera la interrupción. Rising: 0-0. Falling: 1-0.
+	EICRA	= 0b00000011;	//!< Description: Habilita que flanco genera la interrupción. Rising: 1-1. Falling: 1-0.
 	EIMSK	= (1<<INT0);				//!< Description: Habilita Interrupción general de los pines INT0
 	EIFR	= EIFR;						//!< Description: Flag de interrupciones externas
 }
@@ -146,16 +154,16 @@ void do_10ms(){
 }
 
 void do_Transmit(){
-	if (UCSR0A & (1<<UDRE0)){
-		UDR0 = lastMedicion;					//!< Description: UDR0 es el registro que se carga para mandar los datos
-	}
+	
 }
 
 void start_Med(){
 	GPIOR0 |= (1<<FTRIGGER);
+	GPIOR0 &= ~(1<<ECHOSTATE);
+	GPIOR0 &= ~(1<<ECHOFINISH);
 	
 	EICRA	= (1<<ISC01) | (1<<ISC00);	//!< Description: Habilita que flanco genera la interrupción. Rising: 0-0. Falling: 1-0.
-	EIFR	= EIFR;						//!< Description: Flag de interrupciones externas
+	//EIFR	= EIFR;						//!< Description: Flag de interrupciones externas
 }
 
 void do_Trigger(){
@@ -175,12 +183,13 @@ int main(void)
 	ini_Timer1();
 	ini_USART0();
 	ini_ExtInterrupt();
-	start_Med();
 	sei();
 	
 	indexReadTx = 0;
 	indexWriteTx = 0;
-	lastMedicion = 0;
+	lastMedicion.myword_16 = 0;
+	tEchoUP.myword_16 = 0;
+	tEchoDOWN.myword_16 = 0;
 	
 	time1 = TIME1;
 	
@@ -192,9 +201,9 @@ int main(void)
 		{
 			GPIOR0 &= ~(1<<F10US);
 			
-			if (GPIOR1 & (1<<FTRIGGER)){
+			if (GPIOR0 & (1<<FTRIGGER)){
 				if (PINB & (1<<TRIGGER)){		//!< Description: Si el trigger está en 1 pongo la flag en 0
-					GPIOR1 &= ~(1<<FTRIGGER);	//!< Description: Porque no necesito hacer toggle de nuevo
+					GPIOR0 &= ~(1<<FTRIGGER);	//!< Description: Porque no necesito hacer toggle de nuevo
 				}
 				PORTB ^= (1<<TRIGGER);			//!< Description: Toggle del pin de trigger
 			}
@@ -209,20 +218,38 @@ int main(void)
 		if (GPIOR0 & (1<<ECHOFINISH))
 		{
 			GPIOR0 &= ~(1<<ECHOFINISH);
-			lastMedicion = (tEchoDOWN - tEchoUP)/58;
+			lastMedicion.myword_16 = (tEchoDOWN.myword_16 - tEchoUP.myword_16)/58;
 		}
 		
 		if(GPIOR0 & (1<<F100MS)){
 			GPIOR0 &= ~(1<<F100MS);
 			PORTB ^= (1<<LEDBUILDIN);
-			buffTx[indexWriteTx++] = 'M';
 			buffTx[indexWriteTx++] = 'E';
-			buffTx[indexWriteTx++] = '1';
-			buffTx[indexWriteTx++] = ':';
-			buffTx[indexWriteTx++] = lastMedicion;
+			buffTx[indexWriteTx++] = 'U';
+			buffTx[indexWriteTx++] = 'P';
+			buffTx[indexWriteTx++] = ':'; 
+			buffTx[indexWriteTx++] = tEchoUP.myword_8[0];
+			buffTx[indexWriteTx++] = tEchoUP.myword_8[1];
 			buffTx[indexWriteTx++] = ';';
 			buffTx[indexWriteTx++] = 0x0A;
-			lastMedicion++;
+			
+			buffTx[indexWriteTx++] = 'E';
+			buffTx[indexWriteTx++] = 'D';
+			buffTx[indexWriteTx++] = 'W';
+			buffTx[indexWriteTx++] = ':';
+			buffTx[indexWriteTx++] = tEchoDOWN.myword_8[0];
+			buffTx[indexWriteTx++] = tEchoDOWN.myword_8[1];
+			buffTx[indexWriteTx++] = ';';
+			buffTx[indexWriteTx++] = 0x0A;
+			
+			buffTx[indexWriteTx++] = 'M';
+			buffTx[indexWriteTx++] = 'E';
+			buffTx[indexWriteTx++] = 'D';
+			buffTx[indexWriteTx++] = ':';
+			buffTx[indexWriteTx++] = lastMedicion.myword_8[0];
+			buffTx[indexWriteTx++] = lastMedicion.myword_8[1];
+			buffTx[indexWriteTx++] = ';';
+			buffTx[indexWriteTx++] = 0x0A;
 			
 			start_Med();
 		}
