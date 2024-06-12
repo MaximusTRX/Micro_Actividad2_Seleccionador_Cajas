@@ -202,7 +202,7 @@ END GROUP
 .rela.plt
  *(.rela.plt)
 
-.text           0x00000000      0x450
+.text           0x00000000      0x454
  *(.vectors)
  .vectors       0x00000000       0x68 D:/Programs/Atmel/Studio/7.0/Packs/atmel/ATmega_DFP/1.7.374/gcc/dev/atmega328p/avr5/crtatmega328p.o
                 0x00000000                __vector_default
@@ -310,16 +310,16 @@ END GROUP
  .text.start_Med
                 0x000001e6       0x1a main.o
                 0x000001e6                start_Med
- .text.main     0x00000200      0x22e main.o
+ .text.main     0x00000200      0x232 main.o
                 0x00000200                main
  .text.libgcc.mul
-                0x0000042e       0x1e d:/programs/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avr5\libgcc.a(_umulhisi3.o)
-                0x0000042e                __umulhisi3
-                0x0000044c                . = ALIGN (0x2)
+                0x00000432       0x1e d:/programs/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avr5\libgcc.a(_umulhisi3.o)
+                0x00000432                __umulhisi3
+                0x00000450                . = ALIGN (0x2)
  *(.fini9)
- .fini9         0x0000044c        0x0 d:/programs/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avr5\libgcc.a(_exit.o)
-                0x0000044c                _exit
-                0x0000044c                exit
+ .fini9         0x00000450        0x0 d:/programs/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avr5\libgcc.a(_exit.o)
+                0x00000450                _exit
+                0x00000450                exit
  *(.fini9)
  *(.fini8)
  *(.fini8)
@@ -338,11 +338,11 @@ END GROUP
  *(.fini1)
  *(.fini1)
  *(.fini0)
- .fini0         0x0000044c        0x4 d:/programs/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avr5\libgcc.a(_exit.o)
+ .fini0         0x00000450        0x4 d:/programs/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avr5\libgcc.a(_exit.o)
  *(.fini0)
-                0x00000450                _etext = .
+                0x00000454                _etext = .
 
-.data           0x00800100        0x0 load address 0x00000450
+.data           0x00800100        0x0 load address 0x00000454
                 [!provide]                PROVIDE (__data_start, .)
  *(.data)
  *(.data*)
@@ -368,8 +368,8 @@ END GROUP
                 0x00800107                buffTx
                 0x00800207                tEchoDOWN
                 0x00800209                PROVIDE (__bss_end, .)
-                0x00000450                __data_load_start = LOADADDR (.data)
-                0x00000450                __data_load_end = (__data_load_start + SIZEOF (.data))
+                0x00000454                __data_load_start = LOADADDR (.data)
+                0x00000454                __data_load_end = (__data_load_start + SIZEOF (.data))
 
 .noinit         0x00800209        0x0
                 [!provide]                PROVIDE (__noinit_start, .)

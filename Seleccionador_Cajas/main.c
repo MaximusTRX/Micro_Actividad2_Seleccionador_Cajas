@@ -218,7 +218,7 @@ int main(void)
 		if (GPIOR0 & (1<<ECHOFINISH))
 		{
 			GPIOR0 &= ~(1<<ECHOFINISH);
-			lastMedicion.myword_16 = (tEchoDOWN.myword_16 - tEchoUP.myword_16)/58;
+			lastMedicion.myword_16 = (tEchoDOWN.myword_16 - tEchoUP.myword_16)/116;
 		}
 		
 		if(GPIOR0 & (1<<F100MS)){
@@ -257,7 +257,7 @@ int main(void)
 		if (UCSR0A & (1<<UDRE0))
 			if (indexReadTx != indexWriteTx)
 				UDR0 = buffTx[indexReadTx++];
-		
+		//HOLA MAMAAAAAAAA
 		
     }
 }
