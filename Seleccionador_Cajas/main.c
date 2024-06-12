@@ -33,6 +33,28 @@
 #define FTRIGGER	7	// GPIOR0<7>:
 
 
+typedef enum{
+	ALIVE=0xF0,				//ALIVE QUE ENVIA EL MICRO AL SIMU
+	ACK=0x0D,				//ACK QUE RECIVE EL MICRO DESDE EL SIMU
+	CINTAON=0x50,			//ENVIA EL MICRO PARA ENCENDER LA CINTA
+	CINTAOFF=0x51,			//RECIVE EL MICRO DATOS DE LA SIMULACI?N
+	SACACAJA=0x52,			//ENVIA EL MICRO Y RECIVE, DATOS SOBRE LA CAJA A SACAR Y SI LO LOGR?
+	CINTARESET=0x53,		//ENVIA EL MICRO PARA RESETEAR LA CINTA, RECIVE SI FUE REINICIADA O NO
+	CINTAVEL=0x54,			//ENVIA EL MICRO VELOC O RECIVE UNA NUEVA VELOC
+	BOXTYPE=0x5F,			//RECIVE LA ALTURA DE UNA NUEVA CAJA
+}_eID;
+
+
+typedef struct{
+	uint8_t bufferRx[256];		//Buffer de recepcion de datos
+	uint8_t bufferTx[256];		//Buffer de envio de datos
+	uint8_t indexWriteRx;		//Indice de escritura del buffer circular de recepcion
+	uint8_t indexReadRx;		//Indice de lectura del buffer circular de recepcion
+	uint8_t indexWriteTx;		//Indice de escritura del buffer circular de transmision
+	uint8_t indexReadTx;		//Indice de lectura del buffer circular de transmision
+}_sDato;
+_sDato datosProtocol;
+
 // EEPROM
 // eeprom_write_byte() para escribir en la eeprom
 // eeprom_read_byte() para leer desde la eeprom
@@ -55,9 +77,6 @@ uint8_t		time1;
 //uint16_t	tEchoUP;			//!< Description: Guarda el valor del contador del flanco ascendente del ECHO
 //uint16_t	tEchoDOWN;			//!< Description: Guarda el valor del contador del flanco descendente del ECHO
 //uint16_t	lastMedicion;		//!< Description: Guarda el valor de la resta entre los dos anteriores
-uint8_t		buffTx[256];		//!< Description: Buffer para transmición de datos
-uint8_t		indexWriteTx;		//!< Description: Indice de datos escrito en el buffer para enviar
-uint8_t		indexReadTx;		//!< Description: Indice de datos leidos para ser enviados
 //
 
 typedef union{
@@ -80,6 +99,9 @@ void do_10ms();
 void do_Transmit();
 void do_Trigger();
 void start_Med();
+
+void decodeData();
+
 
 //.
 
@@ -106,6 +128,10 @@ ISR(INT0_vect){
 		tEchoDOWN.myword_16 = TCNT1;
 		GPIOR0 |= (1<<ECHOFINISH);
 	}
+}
+
+ISR (USART_RX_vect){
+	datosProtocol.bufferRx[datosProtocol.indexWriteRx++] = UDRE0;
 }
 
 
@@ -166,6 +192,20 @@ void start_Med(){
 	//EIFR	= EIFR;						//!< Description: Flag de interrupciones externas
 }
 
+void decodeData(){
+		uint8_t auxBuffTx[50], indiceAux=0, cheksum;
+
+		switch (datosProtocol.indexReadRx) {
+			case ALIVE:
+				auxBuffTx[indiceAux++]=ALIVE;
+				auxBuffTx[indiceAux++]=ACK;
+			break;
+			
+			default:
+				auxBuffTx[indiceAux++]=0xDD;
+			break;
+}
+
 void do_Trigger(){
 	
 }
@@ -185,8 +225,11 @@ int main(void)
 	ini_ExtInterrupt();
 	sei();
 	
-	indexReadTx = 0;
-	indexWriteTx = 0;
+	datosProtocol.indexReadTx = 0;
+	datosProtocol.indexWriteTx = 0;
+	datosProtocol.indexReadRx = 0;
+	datosProtocol.indexWriteRx = 0;
+	
 	lastMedicion.myword_16 = 0;
 	tEchoUP.myword_16 = 0;
 	tEchoDOWN.myword_16 = 0;
@@ -224,41 +267,12 @@ int main(void)
 		if(GPIOR0 & (1<<F100MS)){
 			GPIOR0 &= ~(1<<F100MS);
 			PORTB ^= (1<<LEDBUILDIN);
-			buffTx[indexWriteTx++] = 'E';
-			buffTx[indexWriteTx++] = 'U';
-			buffTx[indexWriteTx++] = 'P';
-			buffTx[indexWriteTx++] = ':'; 
-			buffTx[indexWriteTx++] = tEchoUP.myword_8[0];
-			buffTx[indexWriteTx++] = tEchoUP.myword_8[1];
-			buffTx[indexWriteTx++] = ';';
-			buffTx[indexWriteTx++] = 0x0A;
-			
-			buffTx[indexWriteTx++] = 'E';
-			buffTx[indexWriteTx++] = 'D';
-			buffTx[indexWriteTx++] = 'W';
-			buffTx[indexWriteTx++] = ':';
-			buffTx[indexWriteTx++] = tEchoDOWN.myword_8[0];
-			buffTx[indexWriteTx++] = tEchoDOWN.myword_8[1];
-			buffTx[indexWriteTx++] = ';';
-			buffTx[indexWriteTx++] = 0x0A;
-			
-			buffTx[indexWriteTx++] = 'M';
-			buffTx[indexWriteTx++] = 'E';
-			buffTx[indexWriteTx++] = 'D';
-			buffTx[indexWriteTx++] = ':';
-			buffTx[indexWriteTx++] = lastMedicion.myword_8[0];
-			buffTx[indexWriteTx++] = lastMedicion.myword_8[1];
-			buffTx[indexWriteTx++] = ';';
-			buffTx[indexWriteTx++] = 0x0A;
-			
 			start_Med();
 		}
 		
 		if (UCSR0A & (1<<UDRE0))
-			if (indexReadTx != indexWriteTx)
-				UDR0 = buffTx[indexReadTx++];
-		//HOLA MAMAAAAAAAA
-		
+			if (datosProtocol.indexReadTx != datosProtocol.indexWriteTx)
+				UDR0 = datosProtocol.bufferTx[datosProtocol.indexReadTx++];
     }
 }
 
