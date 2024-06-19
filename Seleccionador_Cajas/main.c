@@ -42,6 +42,17 @@ typedef enum{
 	BOXTYPE=0x5F,			//RECIVE LA ALTURA DE UNA NUEVA CAJA
 }_eID;
 
+typedef enum{
+	START,
+	HEADER_1,
+	HEADER_2,
+	HEADER_3,
+	NBYTES,
+	TOKEN,
+	PAYLOAD
+}_eProtocolo;
+
+_eProtocolo estadoProtocolo;
 
 typedef struct{
 	uint8_t bufferRx[256];		//Buffer de recepcion de datos
@@ -130,6 +141,7 @@ void do_10ms();
 void do_Transmit();
 //void do_Trigger();
 //void start_Med();
+void decodeProtocol();
 void decodeData();
 void doReset();
 //.
@@ -224,14 +236,94 @@ void start_Med(){
 	//EIFR	= EIFR;						//!< Description: Flag de interrupciones externas
 }
 
+
+void decodeProtocol(_sDato *datosCom)
+{
+	static uint8_t nBytes=0;// indice=0;
+	while (datosCom->indexReadRx!=datosCom->indexWriteRx)
+	{
+		switch (estadoProtocolo) {
+			case START:
+			if (datosCom->bufferRx[datosCom->indexReadRx++]=='U'){
+				estadoProtocolo=HEADER_1;
+				datosCom->cheksumRx=0;
+			}
+			break;
+			case HEADER_1:
+			if (datosCom->bufferRx[datosCom->indexReadRx++]=='N')
+			{
+				estadoProtocolo=HEADER_2;
+			}
+			else{
+				datosCom->indexReadRx--;
+				estadoProtocolo=START;
+			}
+			break;
+			case HEADER_2:
+			if (datosCom->bufferRx[datosCom->indexReadRx++]=='E')
+			{
+				estadoProtocolo=HEADER_3;
+			}
+			else{
+				datosCom->indexReadRx--;
+				estadoProtocolo=START;
+			}
+			break;
+			case HEADER_3:
+			if (datosCom->bufferRx[datosCom->indexReadRx++]=='R')
+			{
+				estadoProtocolo=NBYTES;
+			}
+			else{
+				datosCom->indexReadRx--;
+				estadoProtocolo=START;
+			}
+			break;
+			case NBYTES:
+			//datosCom->indexStart=datosCom->indexReadRx; ///////////////////// AGREGAR ///////////////////////////////////
+			nBytes=datosCom->bufferRx[datosCom->indexReadRx++];
+			estadoProtocolo=TOKEN;
+			break;
+			case TOKEN:
+			if (datosCom->bufferRx[datosCom->indexReadRx++]==':'){
+				estadoProtocolo=PAYLOAD;
+				datosCom->cheksumRx ='U'^'N'^'E'^'R'^ nBytes^':';
+				// datosCom->payload[0]=nBytes;
+				// indice=1;
+			}
+			else{
+				datosCom->indexReadRx--;
+				estadoProtocolo=START;
+			}
+			break;
+			case PAYLOAD:
+			if (nBytes>1){
+				// datosCom->payload[indice++]=datosCom->bufferRx[datosCom->indexReadRx];
+				datosCom->cheksumRx ^= datosCom->bufferRx[datosCom->indexReadRx++];
+			}
+			nBytes--;
+			if(nBytes<=0){
+				estadoProtocolo=START;
+				if(datosCom->cheksumRx == datosCom->bufferRx[datosCom->indexReadRx]){
+					decodeData(datosCom);
+				}
+			}
+			break;
+			default:
+			estadoProtocolo=START;
+			break;
+		}
+	}
+}
+
 void decodeData(){
 		uint8_t auxBuffTx[50], indiceAux=0, cheksum;
-		/*auxBuffTx[indiceAux++]='U';
-		auxBuffTx[indiceAux++]='N';
-		auxBuffTx[indiceAux++]='E';
-		auxBuffTx[indiceAux++]='R';
-		auxBuffTx[indiceAux++]= 0 ;
-		auxBuffTx[indiceAux++]=':';*/
+		//auxBuffTx[indiceAux++]='U';
+		//auxBuffTx[indiceAux++]='N';
+		//auxBuffTx[indiceAux++]='E';
+		//auxBuffTx[indiceAux++]='R';
+		//auxBuffTx[indiceAux++]= 0 ;
+		//auxBuffTx[indiceAux++]=':';
 		
 		switch (datosProtocol.indexReadRx){
 			case ALIVE:
@@ -303,6 +395,7 @@ void decodeData(){
 				datosProtocol.bufferTx[datosProtocol.indexWriteTx++] = auxBuffTx[a];
 			}
 			datosProtocol.bufferTx[datosProtocol.indexWriteTx++] = cheksum;
+}
 }
 
 void doReset(){ //funcion de reseteo de la cinta
