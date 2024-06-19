@@ -226,21 +226,21 @@ void start_Med(){
 
 void decodeData(){
 		uint8_t auxBuffTx[50], indiceAux=0, cheksum;
-		auxBuffTx[indiceAux++]='U';
+		/*auxBuffTx[indiceAux++]='U';
 		auxBuffTx[indiceAux++]='N';
 		auxBuffTx[indiceAux++]='E';
 		auxBuffTx[indiceAux++]='R';
 		auxBuffTx[indiceAux++]= 0 ;
-		auxBuffTx[indiceAux++]=':';
+		auxBuffTx[indiceAux++]=':';*/
 		
 		switch (datosProtocol.indexReadRx){
 			case ALIVE:
 					auxBuffTx[indiceAux++]=ALIVE;
 					auxBuffTx[indiceAux++]=ACK;
-					auxBuffTx[NBYTES]=0x03;
+					//auxBuffTx[NBYTES]=0x03;
 				break;
 			case CINTAON:
-					auxBuffTx[indiceAux++]=ON;
+					auxBuffTx[indiceAux++]=CINTAON;
 					CINTASTATUS=1;
 					speed=datosProtocol.payload[2];				//guarda la velocidad de la cinta
 					boxType[0]=datosProtocol.payload[3];			// guarda el boxType0
@@ -258,17 +258,17 @@ void decodeData(){
 					myWord.ui8[1]=datosProtocol.payload[11];
 					cmOut[2]=myWord.ui16[0];						// guarda el ultimo CM OUT
 					GETTIME=1;
-					auxBuffTx[NBYTES]=0x02;
+					//auxBuffTx[NBYTES]=0x02;
 				break;
 			case CINTAOFF:
 					auxBuffTx[indiceAux++] = CINTAOFF;
 					CINTASTATUS = 0;
-					auxBuffTx[NBYTES] = 0x02;
+					//auxBuffTx[NBYTES] = 0x02;
 				break;
 			case SACACAJA:
 					auxBuffTx[indiceAux++] = SACACAJA;
 					auxBuffTx[indiceAux++] = myBox[indexCheckBox].boxHeigt; //envia la altura de la caja a tirar
-					auxBuffTx[NBYTES] = 0x03;
+					//auxBuffTx[NBYTES] = 0x03;
 					myBox[indexCheckBox].isAvailable = 0;
 				break;
 			case CINTARESET:
@@ -279,10 +279,10 @@ void decodeData(){
 			case CINTAVEL:
 					auxBuffTx[indiceAux++] = 0x0D;
 					speed = datosProtocol.payload[2];
-					auxBuffTx[NBYTES] = 0x02;
+					//auxBuffTx[NBYTES] = 0x02;
 					GETTIME=1;								//flag para calcular el tiempo de salida
 				break;
-			case NEWBOX:
+			case BOXTYPE:
 					myBox[indexNewBox].boxHeigt = datosProtocol.payload[2];	//guarda el tipo de caja
 					myBox[indexNewBox].enterTime = tActual;						//guarda el tiempo de entrada de la caja
 
